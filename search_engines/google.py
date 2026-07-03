@@ -54,7 +54,7 @@ class GoogleEngine(BaseSearchEngine):
 
     def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
         super().__init__(config)
-        self.language = (self.config.get("language") or "zh-cn").lower()
+        self.language = str(self.config.get("language") or "zh-cn").strip().lower()
 
     def _subdomain(self) -> str:
         return _SUBDOMAIN_BY_LANG.get(self.language, "www.google.com")
@@ -63,12 +63,12 @@ class GoogleEngine(BaseSearchEngine):
         """界面语言, e.g. zh-cn → zh-CN, en → en。"""
         if "-" in self.language:
             primary, region = self.language.split("-", 1)
-            return f"{primary}-{region.upper()}"
+            return f"{primary.strip()}-{region.strip().upper()}"
         return self.language
 
     def _lr(self) -> str:
         """限定结果语言, e.g. lang_zh-CN / lang_en。"""
-        primary = self.language.split("-", 1)[0].strip()
+        primary = self.language.split("-", 1)[0].strip().lower()
         return f"lang_{primary}" if primary else ""
 
     def _build_url(self, query: str, start: int = 0) -> str:
@@ -121,7 +121,7 @@ class GoogleEngine(BaseSearchEngine):
         if status != 200:
             return False
         low = html.lower()
-        if "<h3" in low or "data-ved" in low or "/url?q=" in html:
+        if "<h3" in low or "data-ved" in low or "/url?q=" in low:
             return False
         return (
             "<noscript>" in low
@@ -137,8 +137,9 @@ class GoogleEngine(BaseSearchEngine):
         """
         headers = dict(self.headers)
         headers["User-Agent"] = _OPERA_MINI_USER_AGENT
-        primary_lang = self.language.split("-")[0]
-        headers["Accept-Language"] = f"{self._hl()},{primary_lang};q=0.9"
+        hl = self._hl()
+        primary_lang = hl.split("-")[0]
+        headers["Accept-Language"] = f"{hl},{primary_lang};q=0.9"
         headers["Referer"] = f"https://{self._subdomain()}/"
         cookies = {"CONSENT": "YES+"}
         async with aiohttp.ClientSession(cookies=cookies) as session:
